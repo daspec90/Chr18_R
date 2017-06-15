@@ -1,0 +1,172 @@
+---
+title: "Chr18 SNP Analysis"
+author: "Dave Speca"
+date: "6/14/2017"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+###Read in the vcf file and add headers of Chr18.all.vcf:
+
+```{r, cache=TRUE}
+# read in .vcf file
+Chr18.data <- read.table("Chr18.all.vcf", as.is=TRUE, na.strings=".")
+vcf.header <- system("grep '#C' Chr18.all.vcf",intern = TRUE)
+vcf.header <- sub("#","",vcf.header) #get rid of the pound sign
+vcf.header <- unlist(strsplit(vcf.header,split="\t"))
+colnames(Chr18.data) <- vcf.header
+head(Chr18.data, 3)
+```
+
+###String split data
+
+```{r}
+# Before splitting add NAs to blank cells
+
+Chr18.data$DBA[is.na(Chr18.data$DBA)] <- "NA:NA:NA:NA:NA:NA:NA:NA"
+
+DBA.tmp <- matrix(
+  unlist(strsplit(Chr18.data$DBA,split = ":")),
+  nrow=nrow(Chr18.data),
+  byrow=TRUE
+  )
+head(DBA.tmp)
+colnames(DBA.tmp) <- paste("DBA",c("gt","tot.depth","NObsAllele", "ref.depth","ref.qual","alt.depth","alt.qual","gen.lik"),sep="_")
+
+Chr18.data$Chr18[is.na(Chr18.data$Chr18)] <- "NA:NA:NA:NA:NA:NA:NA:NA"
+
+Chr18.tmp <- matrix(
+  unlist(strsplit(Chr18.data$Chr18,split = ":")),
+  nrow=nrow(Chr18.data),
+  byrow=TRUE
+  )
+head(Chr18.tmp)
+colnames(Chr18.tmp) <- paste("Chr18",c("gt","tot.depth","NObsAllele", "ref.depth","ref.qual","alt.depth","alt.qual","gen.lik"),sep="_")
+
+Chr18.data <- cbind(Chr18.data,DBA.tmp,Chr18.tmp,stringsAsFactors=FALSE)
+summary(Chr18.data)
+```
+
+
+###Convert columns back to numeric:
+```{r}
+Chr18.data[,c("DBA_tot.depth","DBA_ref.depth","DBA_ref.qual","DBA_alt.depth","DBA_alt.qual",
+            "Chr18_tot.depth","Chr18_ref.depth","Chr18_ref.qual","Chr18_alt.depth","Chr18_alt.qual")] <- 
+  apply(Chr18.data[,c("DBA_tot.depth","DBA_ref.depth","DBA_ref.qual","DBA_alt.depth","DBA_alt.qual",
+            "Chr18_tot.depth","Chr18_ref.depth","Chr18_ref.qual","Chr18_alt.depth","Chr18_alt.qual")],
+        2,
+        as.numeric
+        )
+head(Chr18.data, 4)
+```
+
+###Exploratory analysis:
+
+####Sequencing depth: DBA, raw
+```{r}
+qplot(Chr18.data$DBA_tot.depth, geom="histogram")
+```
+
+####Sequencing depth: DBA, focused
+```{r}
+qplot(Chr18.data$DBA_tot.depth, geom="histogram", xlim=c(20, 100))
+```
+
+####Sequencing depth: Chr18, focused
+
+```{r}
+qplot(Chr18.data$Chr18_tot.depth, geom="histogram", xlim=c(20, 100))
+```
+
+###Scatterplot of DBA and Chr18 sequencing depths (DP)
+
+```{r}
+plot1 <- ggplot(Chr18.data, aes(DBA_tot.depth, Chr18_tot.depth))
+plot1 + geom_point() + xlim(0,40) + ylim(0,40)
+```
+###Hmmm...Below 20 reads it gets a little iffy.
+
+###Histogram of QUAL scores:
+
+```{r}
+# histogram of low scores
+plot2 <- ggplot(Chr18.data, aes(QUAL)) + geom_histogram()
+plot2
+```
+###Well, that's something. Let's try again.
+
+```{r}
+# histogram of low scores
+plot3 <- ggplot(Chr18.data, aes(QUAL)) + geom_histogram() + xlim(-1, 300)
+plot3
+```
+
+###Kinda weird that there is a spike at QUAL ~ 60, similar to what was seen in Chr2 data. I don't understand why this is happening.
+
+###Subset Chr18.data QUAL > 40
+
+```{r}
+# subset data keeping only SNPs with quality scores greater than or equal to 40
+Chr18.Q40.data <- subset(Chr18.data, QUAL >= 40)
+```
+
+###Replot scatterplot of read depths on Q40 dataset:
+
+```{r}
+plot4 <- ggplot(Chr18.Q40.data, aes(DBA_tot.depth, Chr18_tot.depth))
+plot4 + geom_point() + xlim(20, 600) + ylim(20, 600)
+```
+
+###Let's make a table!
+
+```{r}
+# count the numbers common and unique to each genotype
+ftable(Chr18.Q40.data[,c("DBA_gt","Chr18_gt")])
+```
+
+###Legend: 0=reference allele; 1=first alt. allele; 2=second alt. allele; 3=third alt.allele. Therefore, 0/1=a conventional heterozygote.
+
+###The first thing to look at would be DBA-->0/0 (wild type) and Chr2-->1/1 (homozygous mutant)
+
+###Subset DBA_gt ==0/0 & Chr2_gt==1/1
+
+```{r}
+Chr18.0011.data <- subset(Chr18.Q40.data, (DBA_gt=="0/0" & Chr18_gt == "1/1"))
+```
+
+###Make it a little more user-friendly
+```{r}
+library(dplyr)
+Chr18.0011.tidy.data <-select(Chr18.0011.data, -ID, -FILTER, -INFO, -FORMAT, -DBA, -Chr18)
+```
+
+
+###Plot Chr18 congenic-specific SNPs (Chr18_gt==1/1) to define introgressed region
+
+```{r}
+library(ggplot2)
+###subset Chr18_gt=="1/1"
+Chr18.XX11.data <- subset(Chr18.Q40.data, Chr18_gt=="1/1")
+###plot these SNPs using total depth on y-axis and position on x-axis
+plot.snps <- ggplot(Chr18.XX11.data , aes(x=POS, y=Chr18_tot.depth)) + geom_point(size = 0.5) + ylim(0,500)
+plot.snps
+```
+
+###This looks reasonable. It looks like the introgressed region is safely in between 12.0 Mb and ~72.0 Mb. Epg5 is at ~77.9 Mb in mm10. It is possible that there is a shared haplotype block between DBA and B6. Actually, let's check this in the next graph.
+
+```{r}
+###subset DBA_gt=="1/1"
+Chr18.11XX.data <- subset(Chr18.Q40.data, DBA_gt=="1/1")
+###plot these SNPs using total depth on y-axis and position on x-axis
+plot.D2.snps <- ggplot(Chr18.11XX.data , aes(x=POS, y=DBA_tot.depth)) + geom_point(size = 0.5) + ylim(0,500)
+plot.D2.snps
+```
+
+###It looks like the introgressed region probably does not include Epg5, unfortunately.
+
+####Let's go hunting!
+
