@@ -88,6 +88,7 @@ qplot(Chr18.data$Chr18_tot.depth, geom="histogram", xlim=c(20, 100))
 plot1 <- ggplot(Chr18.data, aes(DBA_tot.depth, Chr18_tot.depth))
 plot1 + geom_point() + xlim(0,40) + ylim(0,40)
 ```
+
 ###Hmmm...Below 20 reads it gets a little iffy.
 
 ###Histogram of QUAL scores:
@@ -97,6 +98,7 @@ plot1 + geom_point() + xlim(0,40) + ylim(0,40)
 plot2 <- ggplot(Chr18.data, aes(QUAL)) + geom_histogram()
 plot2
 ```
+
 ###Well, that's something. Let's try again.
 
 ```{r}
