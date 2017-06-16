@@ -169,4 +169,23 @@ plot.D2.snps
 ###It looks like the introgressed region probably does not include Epg5, unfortunately.
 
 ####Let's go hunting!
+####No great luck with the Chr18_gt == "1/1"
 
+####It could be that distal Chr18 is heterozygous in the mouse sent to UCLA. Worth checking.
+```{r}
+#Subset DBA_gt == "0/0" & Chr18_gt == "0/1"
+Chr18.0001.data <- subset(Chr18.Q40.data, (DBA_gt=="0/0" & Chr18_gt=="0/1"))
+plot.Chr18.het <- ggplot(Chr18.0001.data, aes(x=POS, y=Chr18_tot.depth)) + geom_point(size=0.5)
+plot.Chr18.het
+```
+
+###Try to define more carefully the boundaries of introgressed region of Chr18 congenic.
+
+```{r}
+# Subset DBA_gt=="1/1" & Chr18_gt=="1/1"
+Chr18.1111.data <- subset(Chr18.Q40.data, (DBA_gt=="1/1" & Chr18_gt=="1/1"))
+plot.1111.data <- ggplot(Chr18.1111.data, aes(x=POS, y=DBA_tot.depth)) + geom_point(size = 0.5) + ylim(0, 500)
+plot.1111.data
+```
+
+####The above graph confirms that the introgressed region ends at chr18:73533520 (which unfortunately does not include Epg5)
